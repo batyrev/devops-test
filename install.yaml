@@ -1,8 +1,8 @@
 ---
 - name: Prepare
   hosts: localhost
-  become: yes
-
+  become: true
+  gather_facts: false
   tasks:
     - name: Install packages
       apt:
@@ -21,6 +21,7 @@
 - name: Install Node Exporter
   hosts: localhost
   become: true
+  gather_facts: false
   vars:
     node_exporter_version: "1.7.0"
   tasks:
@@ -63,6 +64,7 @@
 - name: Run Prometheus and Grafana
   hosts: localhost
   connection: local
+  gather_facts: false
 
   tasks:
     - name: Run the containers with docker-compose
