@@ -1,0 +1,71 @@
+---
+- name: Prepare
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Install packages
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - software-properties-common
+        - docker.io
+        - python3-pip
+
+    - name: Install Docker Compose
+      pip:
+        name: docker-compose
+        state: present
+
+- name: Install Node Exporter
+  hosts: localhost
+  become: true
+  vars:
+    node_exporter_version: "1.7.0"
+  tasks:
+    - name: Download Node Exporter
+      get_url:
+        url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
+        dest: /tmp/node_exporter.tar.gz
+
+    - name: Extract Node Exporter
+      ansible.builtin.unarchive:
+        src: /tmp/node_exporter.tar.gz
+        dest: /opt
+        remote_src: yes
+
+    - name: Create Node Exporter user
+      ansible.builtin.user:
+        name: node_exporter
+        system: yes
+
+    - name: Set permissions
+      ansible.builtin.file:
+        path: /opt/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter
+        owner: node_exporter
+        group: node_exporter
+        mode: '0755'
+
+    - name: Create systemd service
+      ansible.builtin.template:
+        src: node_exporter.service.j2
+        dest: /etc/systemd/system/node_exporter.service
+      notify:
+        - restart node_exporter
+
+  handlers:
+    - name: restart node_exporter
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+
+- name: Run Prometheus and Grafana
+  hosts: localhost
+  connection: local
+
+  tasks:
+    - name: Run the containers with docker-compose
+      command: docker-compose up -d
+      args:
+        chdir: "/opt/docker-prometheus-grafana"
